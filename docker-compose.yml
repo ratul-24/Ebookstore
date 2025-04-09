@@ -1,0 +1,173 @@
+version: '3.8'
+
+services:
+  # Eureka Server
+  eureka-server:
+    build: ./eureka
+    container_name: eureka-server
+    ports:
+      - "8761:8761"
+    networks:
+      - bookstore-network
+
+  # API Gateway
+  api-gateway:
+    build: ./gateway
+    container_name: api-gateway
+    ports:
+      - "9090:9090"
+    depends_on:
+      - eureka-server
+    networks:
+      - bookstore-network
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+
+  # User Microservice & Database
+  user-db:
+    image: mysql:8.0
+    container_name: user-db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: mysql@2004
+      MYSQL_DATABASE: users
+    ports:
+      - "3307:3306"
+    networks:
+      - bookstore-network
+    volumes:
+      - user-data:/var/lib/mysql
+      - ./mysql-init-scripts:/docker-entrypoint-initdb.d
+
+  user-service:
+    build: ./user
+    container_name: user-service
+    ports:
+      - "8084:8084"
+    depends_on:
+      - user-db
+      - eureka-server
+    networks:
+      - bookstore-network
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://user-db:3306/users
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=mysql@2004
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - EUREKA_CLIENT_REGISTER_WITH_EUREKA=true
+      - EUREKA_CLIENT_FETCH_REGISTRY=true
+      - SPRING_APPLICATION_NAME=USER-SERVICE
+
+  # Book Microservice & Database
+  book-db:
+    image: mysql:8.0
+    container_name: book-db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: mysql@2004
+      MYSQL_DATABASE: bookdb
+    ports:
+      - "3308:3306"
+    networks:
+      - bookstore-network
+    volumes:
+      - book-data:/var/lib/mysql
+
+  book-service:
+    build: ./book
+    container_name: book-service
+    ports:
+      - "8081:8081"
+    depends_on:
+      - book-db
+      - eureka-server
+    networks:
+      - bookstore-network
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://book-db:3306/bookdb
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=mysql@2004
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - EUREKA_CLIENT_REGISTER_WITH_EUREKA=true
+      - EUREKA_CLIENT_FETCH_REGISTRY=true
+      - SPRING_APPLICATION_NAME=BOOK-SERVICE
+
+  # Cart Microservice & Database
+  cart-db:
+    image: mysql:8.0
+    container_name: cart-db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: mysql@2004
+      MYSQL_DATABASE: cart
+    ports:
+      - "3309:3306"
+    networks:
+      - bookstore-network
+    volumes:
+      - cart-data:/var/lib/mysql
+
+  cart-service:
+    build: ./Cart/Cart
+    container_name: cart-service
+    ports:
+      - "8082:8082"
+    depends_on:
+      - cart-db
+      - eureka-server
+    networks:
+      - bookstore-network
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://cart-db:3306/cart
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=mysql@2004
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - EUREKA_CLIENT_REGISTER_WITH_EUREKA=true
+      - EUREKA_CLIENT_FETCH_REGISTRY=true
+      - SPRING_APPLICATION_NAME=CART-SERVICE
+
+  # Order Microservice & Database
+  order-db:
+    image: mysql:8.0
+    container_name: order-db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: mysql@2004
+      MYSQL_DATABASE: order_db
+    ports:
+      - "3310:3306"
+    networks:
+      - bookstore-network
+    volumes:
+      - order-data:/var/lib/mysql
+
+  order-service:
+    build: ./Order/Order
+    container_name: order-service
+    ports:
+      - "8083:8083"
+    depends_on:
+      - order-db
+      - eureka-server
+    networks:
+      - bookstore-network
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://order-db:3306/order_db
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=mysql@2004
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - EUREKA_CLIENT_REGISTER_WITH_EUREKA=true
+      - EUREKA_CLIENT_FETCH_REGISTRY=true
+      - SPRING_APPLICATION_NAME=ORDER-SERVICE
+
+# Network
+networks:
+  bookstore-network:
+    driver: bridge
+
+# Volumes
+volumes:
+  user-data:
+  book-data:
+  cart-data:
+  order-data:
